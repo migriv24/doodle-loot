@@ -1,0 +1,27 @@
+# Buildozer artifacts
+.buildozer/
+bin/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Environments
+.env
+.venv
+env/
+venv/
+*.conda
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
