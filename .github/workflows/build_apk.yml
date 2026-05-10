@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -36,14 +39,13 @@ jobs:
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.37
 
-      - name: Cache Android SDK/NDK and buildozer downloads
+      - name: Cache Android SDK/NDK
         uses: actions/cache@v4
         with:
           path: |
             ~/.buildozer/android/platform/android-sdk
             ~/.buildozer/android/platform/android-ndk-r25b
           key: buildozer-android-sdk-ndk-r25b
-          restore-keys: buildozer-android-sdk-ndk-r25b
 
       - name: Cache Python-for-Android build artifacts
         uses: actions/cache@v4
@@ -52,17 +54,19 @@ jobs:
           key: p4a-build-${{ hashFiles('buildozer.spec') }}
           restore-keys: p4a-build-
 
-      - name: Accept Android SDK licenses
-        run: |
-          mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
-          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" >> ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-
       - name: Build APK
         run: |
+          set -o pipefail
           export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
           buildozer -v android debug 2>&1 | tee build.log
+
+      - name: Upload build log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 7
 
       - name: Upload APK artifact
         if: success()
@@ -72,10 +76,19 @@ jobs:
           path: bin/*.apk
           retention-days: 30
 
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v2
         with:
-          name: build-log
-          path: build.log
-          retention-days: 7
+          tag_name: latest
+          name: "Doodle Loot - Latest Build"
+          body: |
+            **AI-generated Android game — latest successful build.**
+
+            Download `DoodleLoot.apk`, transfer to your Android phone, and tap to install.
+            (You may need to enable "Install from unknown sources" in Android settings.)
+
+            Built automatically from commit ${{ github.sha }} on ${{ github.ref_name }}.
+          files: bin/*.apk
+          make_latest: true
+          prerelease: false
